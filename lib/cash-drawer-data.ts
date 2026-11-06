@@ -45,6 +45,7 @@ async function checkLoans(tx: Tx) {
       onDate: cashDrawerEntries.onDate,
       amount: cashDrawerEntries.amount,
       person: cashDrawerEntries.person,
+      createdAt: cashDrawerEntries.createdAt,
     })
     .from(cashDrawerEntries)
     .where(inArray(cashDrawerEntries.kind, ["lent", "paid_back"]));
@@ -117,6 +118,7 @@ export async function getCashDrawer(): Promise<CashDrawerView | null> {
         amount: helperEntries.amount,
         deduction: helperEntries.deduction,
         note: helperEntries.note,
+        createdAt: helperEntries.createdAt,
         year: billingPeriods.year,
         month: billingPeriods.month,
       })
@@ -129,6 +131,7 @@ export async function getCashDrawer(): Promise<CashDrawerView | null> {
         description: advances.description,
         amount: advances.amount,
         spentOn: advances.spentOn,
+        createdAt: advances.createdAt,
         year: billingPeriods.year,
         month: billingPeriods.month,
       })
@@ -154,6 +157,7 @@ export async function getCashDrawer(): Promise<CashDrawerView | null> {
         id: e.id,
         // A flagged entry always has a date (helper_entries_drawer_dated).
         onDate: e.onDate!,
+        loggedAt: e.createdAt.getTime(),
         change: -handedOver(e),
         helperKind: e.kind as "visit" | "early_pay",
         note: e.note,
@@ -165,6 +169,7 @@ export async function getCashDrawer(): Promise<CashDrawerView | null> {
       id: a.id,
       // A flagged advance always has a date (advances_drawer_dated).
       onDate: a.spentOn!,
+      loggedAt: a.createdAt.getTime(),
       change: -toCentavos(a.amount),
       description: a.description,
       year: a.year,
