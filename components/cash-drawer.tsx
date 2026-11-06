@@ -8,7 +8,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-button";
 import { EmptyState } from "@/components/empty-state";
 import { AddDrawerEntryDialog, EditDrawerEntryDialog } from "@/components/entry-dialogs";
 import { Button } from "@/components/ui/button";
-import { DRAWER_KIND_LABELS, type DrawerKind } from "@/lib/cash-drawer";
+import { DRAWER_KIND_LABELS, FIRST_MONTHS, MORE_MONTHS, shownMonthCount, type DrawerKind } from "@/lib/cash-drawer";
 import type { CashDrawerView, DrawerLine } from "@/lib/cash-drawer-data";
 import { dateLabel, dayLabel, monthLabel } from "@/lib/format";
 import { formatPHP } from "@/lib/money";
@@ -66,6 +66,12 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
     months.set(key, [...(months.get(key) ?? []), line]);
   }
   const below = drawer.belowZero;
+  // Only the newest months are drawn at first, so the list doesn't grow forever; "Show older
+  // months" adds more (shownMonthCount).
+  const monthKeys = [...months.keys()];
+  const [askedMonths, setAskedMonths] = useState(FIRST_MONTHS);
+  const shownMonths = shownMonthCount(monthKeys, below ? below.onDate.slice(0, 7) : null, askedMonths);
+  const hiddenMonths = monthKeys.length - shownMonths;
 
   return (
     <div className="space-y-6">
@@ -116,7 +122,9 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          {/* Fixed layout on phones holds the table to the screen's width, so a long note wraps
+              instead of widening the table into a sideways scroll. */}
+          <table className="w-full text-sm max-md:table-fixed">
             {/* Phones get a two-line layout per line, so no column headings. */}
             <thead className="hidden bg-amber-50/60 text-left text-amber-900 md:table-header-group">
               <tr>
@@ -131,7 +139,7 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
               </tr>
             </thead>
             <tbody>
-              {[...months].map(([key, lines]) => (
+              {[...months].slice(0, shownMonths).map(([key, lines]) => (
                 <Fragment key={key}>
                   <tr className="border-t bg-zinc-50">
                     <th
@@ -189,10 +197,10 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
                         {/* Phone: what and amount, then date, what was left and buttons. */}
                         <tr className="border-t border-zinc-100 md:hidden">
                           <td colSpan={COLUMNS} className="px-5 py-2.5">
-                            <div className="flex items-baseline justify-between gap-3">
-                              <span className="flex min-w-0 items-center gap-2">
-                                {kindPill}
-                                <span className="truncate">{text}</span>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="flex min-w-0 items-start gap-2">
+                                <span className="shrink-0">{kindPill}</span>
+                                <span className="min-w-0 break-words">{text}</span>
                               </span>
                               <span
                                 className={cn(
@@ -244,6 +252,13 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
             </tbody>
           </table>
         </div>
+        {hiddenMonths > 0 && (
+          <div className="flex justify-center border-t p-4">
+            <Button variant="outline" onClick={() => setAskedMonths(shownMonths + MORE_MONTHS)}>
+              Show older months
+            </Button>
+          </div>
+        )}
       </section>
       <EditDrawerEntryDialog entry={editing} people={drawer.people} onClose={() => setEditing(null)} />
     </div>

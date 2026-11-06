@@ -7,9 +7,12 @@ import {
   drawerFlagFor,
   drawerLedger,
   firstBelowZero,
+  FIRST_MONTHS,
   firstOverpaid,
   loansByPerson,
+  MORE_MONTHS,
   personKey,
+  shownMonthCount,
   type DrawerItem,
 } from "./cash-drawer";
 import type { Viewer } from "./permissions";
@@ -17,42 +20,50 @@ import type { Viewer } from "./permissions";
 // Made-up names and amounts (never the household's real ones). Expected values are worked out
 // by hand from docs/features/cash-drawer.md.
 
-const cashIn = (id: number, onDate: string, amount: number): DrawerItem => ({
+// `loggedAt` (when the line was saved) defaults to the same moment for all, so the source/id
+// tie-break still shows; the tests about logging order pass their own.
+const cashIn = (id: number, onDate: string, amount: number, loggedAt = 0): DrawerItem => ({
   source: "drawer",
   id,
   onDate,
+  loggedAt,
   change: drawerChange("cash_in", amount),
 });
-const spent = (id: number, onDate: string, amount: number): DrawerItem => ({
+const spent = (id: number, onDate: string, amount: number, loggedAt = 0): DrawerItem => ({
   source: "drawer",
   id,
   onDate,
+  loggedAt,
   change: drawerChange("spent", amount),
 });
-const lent = (id: number, onDate: string, person: string, amount: number): DrawerItem => ({
+const lent = (id: number, onDate: string, person: string, amount: number, loggedAt = 0): DrawerItem => ({
   source: "drawer",
   id,
   onDate,
+  loggedAt,
   change: drawerChange("lent", amount),
   loan: { kind: "lent", person },
 });
-const paidBack = (id: number, onDate: string, person: string, amount: number): DrawerItem => ({
+const paidBack = (id: number, onDate: string, person: string, amount: number, loggedAt = 0): DrawerItem => ({
   source: "drawer",
   id,
   onDate,
+  loggedAt,
   change: drawerChange("paid_back", amount),
   loan: { kind: "paid_back", person },
 });
-const helper = (id: number, onDate: string, handedOver: number): DrawerItem => ({
+const helper = (id: number, onDate: string, handedOver: number, loggedAt = 0): DrawerItem => ({
   source: "helper",
   id,
   onDate,
+  loggedAt,
   change: -handedOver,
 });
-const advance = (id: number, onDate: string, amount: number): DrawerItem => ({
+const advance = (id: number, onDate: string, amount: number, loggedAt = 0): DrawerItem => ({
   source: "advance",
   id,
   onDate,
+  loggedAt,
   change: -amount,
 });
 
@@ -94,7 +105,39 @@ describe("drawerLedger", () => {
     ]);
   });
 
-  it("on the same day, puts money in before money out, then the drawer, Helper and advances by id", () => {
+  it("on the same day, puts money out in the order it was logged, whatever its source or id", () => {
+    // Logged: the lent at 09:00, the advance at 10:00, the Helper visit at 11:00, the spent at
+    // 12:00. By source and id alone it would read spent, lent, Helper, advance.
+    const day = "2026-08-05";
+    const at = (hour: number) => Date.UTC(2026, 7, 5, hour);
+    const ledger = drawerLedger([
+      advance(1, day, 30000, at(10)),
+      helper(9, day, 40000, at(11)),
+      spent(2, day, 10000, at(12)),
+      lent(8, day, "Ben", 10000, at(9)),
+      cashIn(3, "2026-08-01", 100000),
+    ]);
+    // 1,000.00 in; then −100.00 → 900.00, −300.00 → 600.00, −400.00 → 200.00, −100.00 → 100.00.
+    expect(ledger.map((l) => [`${l.source}${l.id}`, l.leftAfter])).toEqual([
+      ["drawer3", 100000],
+      ["drawer8", 90000],
+      ["advance1", 60000],
+      ["helper9", 20000],
+      ["drawer2", 10000],
+    ]);
+  });
+
+  it("on the same day, puts a cash in logged after the money out before it all the same", () => {
+    const day = "2026-08-05";
+    const ledger = drawerLedger([advance(1, day, 20000, 1000), cashIn(2, day, 50000, 2000), helper(3, day, 10000, 3000)]);
+    expect(ledger.map((l) => [`${l.source}${l.id}`, l.leftAfter])).toEqual([
+      ["drawer2", 50000],
+      ["advance1", 30000],
+      ["helper3", 20000],
+    ]);
+  });
+
+  it("on the same day and logged at the same moment, puts money in first, then the drawer, Helper and advances by id", () => {
     const day = "2026-08-01";
     const ledger = drawerLedger([
       advance(1, day, 100),
@@ -177,6 +220,43 @@ describe("loansByPerson", () => {
   it("ignores lines that aren't loans", () => {
     expect(loansByPerson([cashIn(1, "2026-08-01", 100), helper(2, "2026-08-01", 100)])).toEqual([]);
   });
+
+  it("on the same day, shows the spelling logged last, not the one with the higher id", () => {
+    // "ben" (id 5) was logged first, "Ben" (id 2) after it: by id, "ben" would be last.
+    const day = "2026-08-05";
+    expect(loansByPerson([lent(5, day, "ben", 10000, 1000), lent(2, day, "Ben", 10000, 2000)])).toEqual([
+      { person: "Ben", owes: 20000 },
+    ]);
+  });
+});
+
+describe("shownMonthCount", () => {
+  // Newest first, as the list draws them.
+  const months = ["2026-11", "2026-10", "2026-09", "2026-08", "2026-07", "2026-06"];
+
+  it("draws as many months as asked for when the drawer never went below ₱0", () => {
+    expect(shownMonthCount(months, null, FIRST_MONTHS)).toBe(2);
+    // One "Show older months": 2 + 3.
+    expect(shownMonthCount(months, null, FIRST_MONTHS + MORE_MONTHS)).toBe(5);
+  });
+
+  it("asks for no more than are there without breaking (fewer months than FIRST_MONTHS)", () => {
+    expect(shownMonthCount(["2026-11"], null, FIRST_MONTHS)).toBe(2);
+  });
+
+  it("leaves it alone when the month it went below ₱0 is already drawn", () => {
+    expect(shownMonthCount(months, "2026-10", FIRST_MONTHS)).toBe(2);
+  });
+
+  it("reaches back to the month it went below ₱0 in, counting that month", () => {
+    // 2026-08 is the 4th-newest month.
+    expect(shownMonthCount(months, "2026-08", FIRST_MONTHS)).toBe(4);
+  });
+
+  it("adds MORE_MONTHS past the reached-back month on a tap", () => {
+    // The page asks for what's shown (4) + 3 = 7.
+    expect(shownMonthCount(months, "2026-08", 4 + MORE_MONTHS)).toBe(7);
+  });
 });
 
 describe("firstOverpaid", () => {
@@ -198,18 +278,25 @@ describe("firstOverpaid", () => {
 });
 
 describe("drawerEntryItem", () => {
-  it("turns a stored entry into a ledger line, with the borrower on a loan", () => {
-    expect(drawerEntryItem({ id: 4, kind: "lent", onDate: "2026-08-05", amount: "1000.50", person: "Ben" })).toEqual({
+  it("turns a stored entry into a ledger line, with the borrower on a loan and when it was logged", () => {
+    const createdAt = new Date("2026-08-05T09:30:00Z");
+    expect(
+      drawerEntryItem({ id: 4, kind: "lent", onDate: "2026-08-05", amount: "1000.50", person: "Ben", createdAt }),
+    ).toEqual({
       source: "drawer",
       id: 4,
       onDate: "2026-08-05",
+      loggedAt: Date.UTC(2026, 7, 5, 9, 30),
       change: -100050,
       loan: { kind: "lent", person: "Ben" },
     });
-    expect(drawerEntryItem({ id: 5, kind: "cash_in", onDate: "2026-08-01", amount: "0.01", person: null })).toEqual({
+    expect(
+      drawerEntryItem({ id: 5, kind: "cash_in", onDate: "2026-08-01", amount: "0.01", person: null, createdAt }),
+    ).toEqual({
       source: "drawer",
       id: 5,
       onDate: "2026-08-01",
+      loggedAt: Date.UTC(2026, 7, 5, 9, 30),
       change: 1,
     });
   });

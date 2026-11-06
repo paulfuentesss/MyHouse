@@ -27,6 +27,8 @@ export interface DrawerItem {
   /** The row's id within its source. */
   id: number;
   onDate: string;
+  /** When the row was saved (its `created_at`, ms since 1970): the order within a day. */
+  loggedAt: number;
   /** + money into the drawer, − money out. */
   change: Centavos;
   /** Lent / paid back only: who, as typed. */
@@ -84,11 +86,13 @@ export function drawerEntryItem(entry: {
   onDate: string;
   amount: string;
   person: string | null;
+  createdAt: Date;
 }): DrawerItem {
   const item: DrawerItem = {
     source: "drawer",
     id: entry.id,
     onDate: entry.onDate,
+    loggedAt: entry.createdAt.getTime(),
     change: drawerChange(entry.kind, toCentavos(entry.amount)),
   };
   if ((entry.kind === "lent" || entry.kind === "paid_back") && entry.person !== null) {
@@ -101,13 +105,14 @@ const SOURCE_RANK: Record<DrawerSource, number> = { drawer: 0, helper: 1, advanc
 
 /**
  * Ledger order: by date; on the same day money in comes before money out (so taking cash out
- * of the bank and paying from it that day never reads as below ₱0), then by source and id.
+ * of the bank and paying from it that day never reads as below ₱0), then in the order they were
+ * logged. Source and id only settle lines saved at the very same moment.
  */
 export function drawerCompare(a: DrawerItem, b: DrawerItem): number {
   if (a.onDate !== b.onDate) return a.onDate < b.onDate ? -1 : 1;
   const aIn = a.change > 0;
   if (aIn !== b.change > 0) return aIn ? -1 : 1;
-  return SOURCE_RANK[a.source] - SOURCE_RANK[b.source] || a.id - b.id;
+  return a.loggedAt - b.loggedAt || SOURCE_RANK[a.source] - SOURCE_RANK[b.source] || a.id - b.id;
 }
 
 /** The items in ledger order (a sorted copy), each with the cash left after it. */
@@ -126,6 +131,19 @@ export function cashOnHand(items: readonly DrawerItem[]): Centavos {
 /** The first line after which the drawer would hold less than ₱0, if any (ledger order). */
 export function firstBelowZero<T extends { leftAfter: Centavos }>(ledger: readonly T[]): T | null {
   return ledger.find((line) => line.leftAfter < 0) ?? null;
+}
+
+/** Months of lines the Ins & Outs list draws at first, and how many more each "Show older months" adds. */
+export const FIRST_MONTHS = 2;
+export const MORE_MONTHS = 3;
+
+/**
+ * How many of the newest months the list draws: as many as asked for (FIRST_MONTHS, then more
+ * with each tap), but always far enough back to show the month it went below ₱0 in, which the
+ * Cash on hand card names. `monthKeys` are "YYYY-MM", newest first; `belowMonth` likewise.
+ */
+export function shownMonthCount(monthKeys: readonly string[], belowMonth: string | null, asked: number): number {
+  return Math.max(asked, belowMonth ? monthKeys.indexOf(belowMonth) + 1 : 0);
 }
 
 /** Names match whatever their spacing or capitals, so "Ben" and "ben " are one person. */

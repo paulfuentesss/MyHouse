@@ -20,7 +20,14 @@ from it, and sometimes someone borrows from it. The Cash Drawer tab keeps that n
   regardless of capitals or extra spaces, and the last spelling typed is the one shown.
 - **Ins & Outs:** every line, newest first, under a heading for each month, with In, Out and
   what was left after each line. On the same day, money in comes before money out, so taking
-  cash from the bank and paying from it that day never shows as below ₱0.
+  cash from the bank and paying from it that day never shows as below ₱0; otherwise a day's
+  lines follow the order they were logged in.
+  - Only the two newest months with lines show at first; **Show older months** adds three more
+    each tap. If the drawer went below ₱0 in an older month, the list reaches back to it.
+    Hiding months only changes what's drawn: Cash on hand, Owed and the below-₱0 hint count
+    every line.
+  - On a phone each line is two rows (what and amount, then date, what was left and buttons),
+    and a long note wraps rather than widening the list.
 - **Add entry:** pick the kind, then fill in date, amount, a note, and the person for a loan.
   The Person field suggests names typed before.
   - **Cash in:** money put in, either from the bank or what's already in the drawer when you
@@ -53,6 +60,7 @@ from it, and sometimes someone borrows from it. The Cash Drawer tab keeps that n
 - Pure logic: `lib/cash-drawer.ts`, tested in `lib/cash-drawer.test.ts`:
   - `drawerLedger` (order and what's left after each line), `cashOnHand`, `loansByPerson`,
     `firstOverpaid`, `firstBelowZero`
+  - `shownMonthCount` (how many months the Ins & Outs list draws)
   - `drawerFlagFor` (the checkbox rule) and `drawerEntryValues` (validating a typed entry)
 - Database side: `lib/cash-drawer-data.ts`, tested on PGlite in `lib/cash-drawer-data.test.ts`.
   - `getCashDrawer` reads the drawer's entries plus the flagged Helper entries and advances, and
