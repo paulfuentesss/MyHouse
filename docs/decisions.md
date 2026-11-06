@@ -1276,3 +1276,15 @@ what was typed, the same everywhere else in the Split Table, and the bill can be
 fee already in it (or paid a different way, with no fee).
 **Instead of:** adding the fee on save, which would change a typed number behind PA's back and
 double the fee whenever he typed the total with it already in.
+
+## 2026-11-06 — Cash drawer: a day's lines in the order they were logged; older months on request
+**Decision:** within a day, the drawer orders lines by when they were saved (`created_at`), after
+the existing rule that money in comes first. Source and id only settle lines saved at the same
+moment. The list draws the two newest months with lines and a "Show older months" button.
+**Why:** sorting by source put every advance above every Helper visit above every drawer entry on
+the same day, whatever order PA logged them in, unlike his notebook. Money in still goes first so
+a cash in logged after that day's spending never shows the drawer below ₱0. The list only grows;
+older months are rarely looked at, and all lines still load because Cash on hand, Owed and the
+below-₱0 hint need every one.
+**Instead of:** a time field on each entry (one more thing to type, for an order `created_at`
+already records), or paging on the server (the rows are few, and the totals need them all anyway).

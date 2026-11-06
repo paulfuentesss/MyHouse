@@ -26,6 +26,9 @@ const KIND_PILLS: Record<DrawerKind, string> = {
 const LINKED_PILL = "bg-violet-50 text-violet-700 ring-violet-200";
 
 const COLUMNS = 6;
+/** Months of lines drawn at first, and how many more each "Show older months" adds. */
+const FIRST_MONTHS = 2;
+const MORE_MONTHS = 3;
 
 /** The pill, and the words beside it. */
 function describe(line: DrawerLine): { pill: string; pillClass: string; text: string | null } {
@@ -66,6 +69,15 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
     months.set(key, [...(months.get(key) ?? []), line]);
   }
   const below = drawer.belowZero;
+  // Only the newest months are drawn at first, so the list doesn't grow forever; "Show older
+  // months" adds more. Far enough back to include where it went below ₱0, which the card names.
+  const monthKeys = [...months.keys()];
+  const [olderShown, setOlderShown] = useState(0);
+  const shownMonths = Math.max(
+    FIRST_MONTHS + olderShown,
+    below ? monthKeys.indexOf(below.onDate.slice(0, 7)) + 1 : 0,
+  );
+  const hiddenMonths = monthKeys.length - shownMonths;
 
   return (
     <div className="space-y-6">
@@ -116,7 +128,9 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          {/* Fixed layout on phones holds the table to the screen's width, so a long note wraps
+              instead of widening the table into a sideways scroll. */}
+          <table className="w-full text-sm max-md:table-fixed">
             {/* Phones get a two-line layout per line, so no column headings. */}
             <thead className="hidden bg-amber-50/60 text-left text-amber-900 md:table-header-group">
               <tr>
@@ -131,7 +145,7 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
               </tr>
             </thead>
             <tbody>
-              {[...months].map(([key, lines]) => (
+              {[...months].slice(0, shownMonths).map(([key, lines]) => (
                 <Fragment key={key}>
                   <tr className="border-t bg-zinc-50">
                     <th
@@ -189,10 +203,10 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
                         {/* Phone: what and amount, then date, what was left and buttons. */}
                         <tr className="border-t border-zinc-100 md:hidden">
                           <td colSpan={COLUMNS} className="px-5 py-2.5">
-                            <div className="flex items-baseline justify-between gap-3">
-                              <span className="flex min-w-0 items-center gap-2">
-                                {kindPill}
-                                <span className="truncate">{text}</span>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="flex min-w-0 items-start gap-2">
+                                <span className="shrink-0">{kindPill}</span>
+                                <span className="min-w-0 break-words">{text}</span>
                               </span>
                               <span
                                 className={cn(
@@ -244,6 +258,13 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
             </tbody>
           </table>
         </div>
+        {hiddenMonths > 0 && (
+          <div className="flex justify-center border-t p-4">
+            <Button variant="outline" onClick={() => setOlderShown(shownMonths - FIRST_MONTHS + MORE_MONTHS)}>
+              Show older months
+            </Button>
+          </div>
+        )}
       </section>
       <EditDrawerEntryDialog entry={editing} people={drawer.people} onClose={() => setEditing(null)} />
     </div>
