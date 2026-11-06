@@ -8,7 +8,7 @@ import { ConfirmDeleteButton } from "@/components/confirm-button";
 import { EmptyState } from "@/components/empty-state";
 import { AddDrawerEntryDialog, EditDrawerEntryDialog } from "@/components/entry-dialogs";
 import { Button } from "@/components/ui/button";
-import { DRAWER_KIND_LABELS, type DrawerKind } from "@/lib/cash-drawer";
+import { DRAWER_KIND_LABELS, FIRST_MONTHS, MORE_MONTHS, shownMonthCount, type DrawerKind } from "@/lib/cash-drawer";
 import type { CashDrawerView, DrawerLine } from "@/lib/cash-drawer-data";
 import { dateLabel, dayLabel, monthLabel } from "@/lib/format";
 import { formatPHP } from "@/lib/money";
@@ -26,9 +26,6 @@ const KIND_PILLS: Record<DrawerKind, string> = {
 const LINKED_PILL = "bg-violet-50 text-violet-700 ring-violet-200";
 
 const COLUMNS = 6;
-/** Months of lines drawn at first, and how many more each "Show older months" adds. */
-const FIRST_MONTHS = 2;
-const MORE_MONTHS = 3;
 
 /** The pill, and the words beside it. */
 function describe(line: DrawerLine): { pill: string; pillClass: string; text: string | null } {
@@ -70,13 +67,10 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
   }
   const below = drawer.belowZero;
   // Only the newest months are drawn at first, so the list doesn't grow forever; "Show older
-  // months" adds more. Far enough back to include where it went below ₱0, which the card names.
+  // months" adds more (shownMonthCount).
   const monthKeys = [...months.keys()];
-  const [olderShown, setOlderShown] = useState(0);
-  const shownMonths = Math.max(
-    FIRST_MONTHS + olderShown,
-    below ? monthKeys.indexOf(below.onDate.slice(0, 7)) + 1 : 0,
-  );
+  const [askedMonths, setAskedMonths] = useState(FIRST_MONTHS);
+  const shownMonths = shownMonthCount(monthKeys, below ? below.onDate.slice(0, 7) : null, askedMonths);
   const hiddenMonths = monthKeys.length - shownMonths;
 
   return (
@@ -260,7 +254,7 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
         </div>
         {hiddenMonths > 0 && (
           <div className="flex justify-center border-t p-4">
-            <Button variant="outline" onClick={() => setOlderShown(shownMonths - FIRST_MONTHS + MORE_MONTHS)}>
+            <Button variant="outline" onClick={() => setAskedMonths(shownMonths + MORE_MONTHS)}>
               Show older months
             </Button>
           </div>

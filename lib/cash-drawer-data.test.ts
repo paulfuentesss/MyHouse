@@ -164,6 +164,31 @@ describe("getCashDrawer", () => {
     ]);
   });
 
+  it("orders a day's lines by when each was saved, across the three tables", async () => {
+    const pa = august.idOf("PA");
+    const [column] = await db
+      .select({ id: sharedColumns.id })
+      .from(sharedColumns)
+      .where(and(eq(sharedColumns.periodId, august.periodId), eq(sharedColumns.isDefault, true)));
+    const day = "2026-08-05";
+    const at = (hour: number) => new Date(Date.UTC(2026, 7, 5, hour));
+    // Saved: the advance at 09:00, the spent at 10:00, the Helper visit at 11:00. By source alone
+    // it would read spent, Helper, advance.
+    await db.insert(helperEntries).values({
+      periodId: august.periodId, kind: "visit", payerId: pa, onDate: day, amount: "400.00", fromDrawer: true, createdAt: at(11),
+    });
+    await db.insert(cashDrawerEntries).values({ kind: "spent", onDate: day, amount: "100.00", createdAt: at(10) });
+    await db.insert(advances).values({
+      periodId: august.periodId, columnId: column.id, payerId: pa, category: "grocery", description: "Rice", amount: "300.00", spentOn: day, fromDrawer: true, createdAt: at(9),
+    });
+    const lines = (await getCashDrawer())!.lines;
+    expect(lines.map((l) => [l.source, l.loggedAt])).toEqual([
+      ["advance", at(9).getTime()],
+      ["drawer", at(10).getTime()],
+      ["helper", at(11).getTime()],
+    ]);
+  });
+
   it("points at the first line that took the drawer below ₱0", async () => {
     await add("spent", "2026-08-02", "300.00");
     await add("cash_in", "2026-08-03", "100.00");

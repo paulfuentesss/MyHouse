@@ -133,6 +133,19 @@ export function firstBelowZero<T extends { leftAfter: Centavos }>(ledger: readon
   return ledger.find((line) => line.leftAfter < 0) ?? null;
 }
 
+/** Months of lines the Ins & Outs list draws at first, and how many more each "Show older months" adds. */
+export const FIRST_MONTHS = 2;
+export const MORE_MONTHS = 3;
+
+/**
+ * How many of the newest months the list draws: as many as asked for (FIRST_MONTHS, then more
+ * with each tap), but always far enough back to show the month it went below ₱0 in, which the
+ * Cash on hand card names. `monthKeys` are "YYYY-MM", newest first; `belowMonth` likewise.
+ */
+export function shownMonthCount(monthKeys: readonly string[], belowMonth: string | null, asked: number): number {
+  return Math.max(asked, belowMonth ? monthKeys.indexOf(belowMonth) + 1 : 0);
+}
+
 /** Names match whatever their spacing or capitals, so "Ben" and "ben " are one person. */
 export function personKey(person: string): string {
   return person.trim().replace(/\s+/g, " ").toLocaleLowerCase();

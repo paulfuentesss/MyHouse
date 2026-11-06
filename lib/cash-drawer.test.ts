@@ -7,9 +7,12 @@ import {
   drawerFlagFor,
   drawerLedger,
   firstBelowZero,
+  FIRST_MONTHS,
   firstOverpaid,
   loansByPerson,
+  MORE_MONTHS,
   personKey,
+  shownMonthCount,
   type DrawerItem,
 } from "./cash-drawer";
 import type { Viewer } from "./permissions";
@@ -216,6 +219,43 @@ describe("loansByPerson", () => {
 
   it("ignores lines that aren't loans", () => {
     expect(loansByPerson([cashIn(1, "2026-08-01", 100), helper(2, "2026-08-01", 100)])).toEqual([]);
+  });
+
+  it("on the same day, shows the spelling logged last, not the one with the higher id", () => {
+    // "ben" (id 5) was logged first, "Ben" (id 2) after it: by id, "ben" would be last.
+    const day = "2026-08-05";
+    expect(loansByPerson([lent(5, day, "ben", 10000, 1000), lent(2, day, "Ben", 10000, 2000)])).toEqual([
+      { person: "Ben", owes: 20000 },
+    ]);
+  });
+});
+
+describe("shownMonthCount", () => {
+  // Newest first, as the list draws them.
+  const months = ["2026-11", "2026-10", "2026-09", "2026-08", "2026-07", "2026-06"];
+
+  it("draws as many months as asked for when the drawer never went below ₱0", () => {
+    expect(shownMonthCount(months, null, FIRST_MONTHS)).toBe(2);
+    // One "Show older months": 2 + 3.
+    expect(shownMonthCount(months, null, FIRST_MONTHS + MORE_MONTHS)).toBe(5);
+  });
+
+  it("asks for no more than are there without breaking (fewer months than FIRST_MONTHS)", () => {
+    expect(shownMonthCount(["2026-11"], null, FIRST_MONTHS)).toBe(2);
+  });
+
+  it("leaves it alone when the month it went below ₱0 is already drawn", () => {
+    expect(shownMonthCount(months, "2026-10", FIRST_MONTHS)).toBe(2);
+  });
+
+  it("reaches back to the month it went below ₱0 in, counting that month", () => {
+    // 2026-08 is the 4th-newest month.
+    expect(shownMonthCount(months, "2026-08", FIRST_MONTHS)).toBe(4);
+  });
+
+  it("adds MORE_MONTHS past the reached-back month on a tap", () => {
+    // The page asks for what's shown (4) + 3 = 7.
+    expect(shownMonthCount(months, "2026-08", 4 + MORE_MONTHS)).toBe(7);
   });
 });
 
