@@ -1164,8 +1164,16 @@ const DRAWER_KIND_HINTS: Record<DrawerKind, string> = {
   cash_in: "Money put in: taken out of the bank, or what's in the drawer when you start.",
   spent: "Paid out for something not logged in My House. A Helper visit or an advance? Tick “Paid from the cash drawer” on it instead.",
   lent: "Someone borrowed from the drawer. It shows under Owed until it's paid back.",
-  paid_back: "Someone returned what they borrowed.",
+  paid_back:
+    "Someone returned what they borrowed. Paid to your bank or e-wallet? It clears what they owe without adding to the drawer's cash.",
 };
+
+// Where a Paid back went. Bank / e-wallet first: it's how people usually pay back.
+type PaidTo = "account" | "drawer";
+const PAID_TO_ITEMS: { value: PaidTo; label: string }[] = [
+  { value: "account", label: "Bank / e-wallet" },
+  { value: "drawer", label: "Drawer (cash)" },
+];
 
 /** "Add entry" on the Cash Drawer tab (docs/features/cash-drawer.md). `people`: names typed before. */
 export function AddDrawerEntryDialog({ people }: { people: string[] }) {
@@ -1208,6 +1216,10 @@ function DrawerEntryForm({ entry, people, onDone }: { entry?: DrawerEntry; peopl
   });
   const [kind, setKind] = useState<DrawerKind>(entry?.kind ?? "cash_in");
   const loan = kind === "lent" || kind === "paid_back";
+  // A new payback, or a loan switched to one, starts on bank / e-wallet; an existing one keeps its own.
+  const [paidTo, setPaidTo] = useState<PaidTo>(
+    entry?.kind === "paid_back" && !entry.toAccount ? "drawer" : "account",
+  );
   return (
     <>
       <DialogHeader>
@@ -1269,6 +1281,27 @@ function DrawerEntryForm({ entry, people, onDone }: { entry?: DrawerEntry; peopl
             </Field>
           )}
         </div>
+        {kind === "paid_back" && (
+          <Field label="Paid to" htmlFor="paidTo">
+            <Select
+              name="paidTo"
+              items={PAID_TO_ITEMS}
+              value={paidTo}
+              onValueChange={(v) => setPaidTo((v as PaidTo) ?? "account")}
+            >
+              <SelectTrigger id="paidTo" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAID_TO_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field label="Note (optional)" htmlFor="note">
           <Input
             id="note"

@@ -13,10 +13,12 @@ from it, and sometimes someone borrows from it. The Cash Drawer tab keeps that n
 - **It's never part of the split.** The drawer is PA's own money. A Helper visit or advance he
   paid from it still counts as paid by him, exactly as before. Nothing in
   [settlement-rules.md](../settlement-rules.md) changes.
-- **Cash on hand:** everything put in, minus everything paid out or lent. It can go below ₱0
+- **Cash on hand:** everything put in, minus everything paid out or lent. A Paid back to PA's
+  bank or e-wallet isn't in it, since that money never reached the drawer. It can go below ₱0
   (for example, when a Cash in hasn't been logged yet). The card then says on which day it went
   below ₱0, and the amount turns red.
-- **Owed to the drawer:** what each person borrowed minus what they paid back. Names match
+- **Owed to the drawer:** what each person borrowed minus what they paid back, wherever they
+  paid it (cash or bank / e-wallet). Names match
   regardless of capitals or extra spaces, and the last spelling typed is the one shown.
 - **Ins & Outs:** every line, newest first, under a heading for each month, with In, Out and
   what was left after each line. On the same day, money in comes before money out, so taking
@@ -34,6 +36,11 @@ from it, and sometimes someone borrows from it. The Cash Drawer tab keeps that n
     start.
   - **Spent:** paid out for something not logged in My House.
   - **Lent / Paid back:** someone borrowed, or returned what they borrowed.
+  - A Paid back has **Paid to**: **Bank / e-wallet** (the default, since that's how people
+    usually pay PA back) or **Drawer (cash)**. Either clears what they owe; only cash adds to
+    Cash on hand. In Ins & Outs a bank / e-wallet payback reads "to bank / e-wallet", with its
+    amount in grey outside In and Out, and leaves what's left unchanged. When PA takes that money
+    out of the bank to refill the drawer, it's a normal Cash in.
 
   The drawer's own lines can be edited and deleted. A save that would leave someone having paid
   back more than they borrowed is refused. That covers a Paid back that's too big, shrinking or
@@ -76,9 +83,13 @@ from it, and sometimes someone borrows from it. The Cash Drawer tab keeps that n
 - Page data: `lib/periods.ts` sends `fromDrawer` on advances and Helper entries only to the
   admin. Housemates' pages always get `false`.
 - Tables: `cash_drawer_entries` (the `cash_drawer_kind` enum), plus `from_drawer` on
-  `helper_entries` and `advances`. Migration `0024_cash-drawer`
+  `helper_entries` and `advances`. Migration `0024_cash-drawer`. Paid to is
+  `cash_drawer_entries.to_account` (migration `0026_drawer-paid-to`)
   ([data-model.md](../data-model.md)).
-- Why it's built this way: [decisions.md](../decisions.md), 2026-10-26.
+  - In the logic, `drawerChange` gives a to-account Paid back no cash change, and
+    `loansByPerson` counts loans from each line's own amount (`DrawerItem.loan.amount`), not
+    from the cash change.
+- Why it's built this way: [decisions.md](../decisions.md), 2026-10-26 and 2026-11-08.
 
 ## Rules
 Not part of the split, so none in [settlement-rules.md](../settlement-rules.md).

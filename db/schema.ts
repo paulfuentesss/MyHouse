@@ -588,6 +588,9 @@ export const cashDrawerEntries = pgTable(
     amount: money("amount").notNull(),
     // Who borrowed or paid back, as typed (they needn't be a member); lent / paid_back only.
     person: text("person"),
+    // Paid back only: it went to PA's bank or e-wallet, not into the drawer, so it clears the
+    // loan without adding cash. False on everything else.
+    toAccount: boolean("to_account").notNull().default(false),
     note: text("note"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -595,6 +598,7 @@ export const cashDrawerEntries = pgTable(
   (t) => [
     check("cash_drawer_entries_amount_positive", sql`${t.amount} > 0`),
     check("cash_drawer_entries_person", sql`(${t.kind} IN ('lent', 'paid_back')) = (${t.person} IS NOT NULL)`),
+    check("cash_drawer_entries_to_account", sql`NOT ${t.toAccount} OR ${t.kind} = 'paid_back'`),
   ],
 ).enableRLS();
 

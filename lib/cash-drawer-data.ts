@@ -45,6 +45,7 @@ async function checkLoans(tx: Tx) {
       onDate: cashDrawerEntries.onDate,
       amount: cashDrawerEntries.amount,
       person: cashDrawerEntries.person,
+      toAccount: cashDrawerEntries.toAccount,
       createdAt: cashDrawerEntries.createdAt,
     })
     .from(cashDrawerEntries)
@@ -86,7 +87,15 @@ interface InMonth {
 
 type DrawerSourceItem = DrawerItem &
   (
-    | { source: "drawer"; kind: DrawerKind; amount: Centavos; person: string | null; note: string | null }
+    | {
+        source: "drawer";
+        kind: DrawerKind;
+        amount: Centavos;
+        person: string | null;
+        /** A paid back to PA's bank or e-wallet: it cleared the loan but added no cash. */
+        toAccount: boolean;
+        note: string | null;
+      }
     | ({ source: "helper"; helperKind: "visit" | "early_pay"; note: string | null } & InMonth)
     | ({ source: "advance"; description: string } & InMonth)
   );
@@ -147,6 +156,7 @@ export async function getCashDrawer(): Promise<CashDrawerView | null> {
       kind: e.kind,
       amount: toCentavos(e.amount),
       person: e.person,
+      toAccount: e.toAccount,
       note: e.note,
     })),
     ...helper

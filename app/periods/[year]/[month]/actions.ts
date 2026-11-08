@@ -1599,6 +1599,11 @@ const drawerEntryFields = z.object({
   onDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date"),
   amount: moneyField(false),
   person: z.string().max(60, "Keep the name under 60 characters").default(""),
+  // Paid back only (the form sends it only then): to PA's bank / e-wallet, or into the drawer.
+  paidTo: z
+    .enum(["account", "drawer"], { message: "Choose where it was paid" })
+    .default("drawer")
+    .transform((v) => v === "account"),
   note: z
     .string()
     .trim()
@@ -1608,15 +1613,15 @@ const drawerEntryFields = z.object({
 });
 
 export async function addDrawerEntry(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return run("admin", drawerEntryFields, formData, async (input) => {
-    const values = drawerEntryValues(input);
+  return run("admin", drawerEntryFields, formData, async ({ paidTo, ...input }) => {
+    const values = drawerEntryValues({ ...input, toAccount: paidTo });
     await db.transaction((tx) => addDrawerEntryIn(tx, values));
   });
 }
 
 export async function updateDrawerEntry(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return run("admin", drawerEntryFields.extend({ entryId: id }), formData, async ({ entryId, ...input }) => {
-    const values = drawerEntryValues(input);
+  return run("admin", drawerEntryFields.extend({ entryId: id }), formData, async ({ entryId, paidTo, ...input }) => {
+    const values = drawerEntryValues({ ...input, toAccount: paidTo });
     await db.transaction((tx) => updateDrawerEntryIn(tx, entryId, values));
   });
 }

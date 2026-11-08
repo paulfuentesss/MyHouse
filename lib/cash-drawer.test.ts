@@ -42,7 +42,7 @@ const lent = (id: number, onDate: string, person: string, amount: number, logged
   onDate,
   loggedAt,
   change: drawerChange("lent", amount),
-  loan: { kind: "lent", person },
+  loan: { kind: "lent", person, amount },
 });
 const paidBack = (id: number, onDate: string, person: string, amount: number, loggedAt = 0): DrawerItem => ({
   source: "drawer",
@@ -50,7 +50,16 @@ const paidBack = (id: number, onDate: string, person: string, amount: number, lo
   onDate,
   loggedAt,
   change: drawerChange("paid_back", amount),
-  loan: { kind: "paid_back", person },
+  loan: { kind: "paid_back", person, amount },
+});
+// Paid back to PA's bank or e-wallet: it clears the loan, but no cash reached the drawer.
+const paidToAccount = (id: number, onDate: string, person: string, amount: number, loggedAt = 0): DrawerItem => ({
+  source: "drawer",
+  id,
+  onDate,
+  loggedAt,
+  change: drawerChange("paid_back", amount, true),
+  loan: { kind: "paid_back", person, amount },
 });
 const helper = (id: number, onDate: string, handedOver: number, loggedAt = 0): DrawerItem => ({
   source: "helper",
@@ -89,6 +98,50 @@ describe("drawerChange", () => {
     expect(drawerChange("paid_back", 100)).toBe(100);
     expect(drawerChange("spent", 100)).toBe(-100);
     expect(drawerChange("lent", 100)).toBe(-100);
+  });
+
+  it("counts nothing for a paid back to the bank or e-wallet, and ignores the flag on anything else", () => {
+    expect(drawerChange("paid_back", 100, true)).toBe(0);
+    expect(drawerChange("paid_back", 100, false)).toBe(100);
+    // The DB refuses to_account on other kinds; even so, it doesn't change them.
+    expect(drawerChange("cash_in", 100, true)).toBe(100);
+    expect(drawerChange("lent", 100, true)).toBe(-100);
+  });
+});
+
+describe("paid back to the bank or e-wallet", () => {
+  // Aug 1 cash in +2,000.00 → 2,000.00
+  // Aug 2 lent Ben  −600.00 → 1,400.00
+  // Aug 9 Ben pays back 600.00 by e-wallet → still 1,400.00 in the drawer, and Ben owes 0.
+  const items = [
+    cashIn(1, "2026-08-01", 200000),
+    lent(2, "2026-08-02", "Ben", 60000),
+    paidToAccount(3, "2026-08-09", "Ben", 60000),
+  ];
+
+  it("clears the loan without adding cash", () => {
+    expect(loansByPerson(items)).toEqual([{ person: "Ben", owes: 0 }]);
+    expect(cashOnHand(items)).toBe(140000);
+    expect(drawerLedger(items).map((l) => l.leftAfter)).toEqual([200000, 140000, 140000]);
+  });
+
+  it("adds up with paybacks in cash", () => {
+    // Cara borrowed 1,000.00, paid 300.00 in cash and 500.00 by bank transfer: owes 200.00. The
+    // drawer: 2,000.00 − 1,000.00 + 300.00 = 1,300.00.
+    const mixed = [
+      cashIn(1, "2026-08-01", 200000),
+      lent(2, "2026-08-02", "Cara", 100000),
+      paidBack(3, "2026-08-05", "Cara", 30000),
+      paidToAccount(4, "2026-08-07", "cara", 50000),
+    ];
+    expect(loansByPerson(mixed)).toEqual([{ person: "cara", owes: 20000 }]);
+    expect(cashOnHand(mixed)).toBe(130000);
+  });
+
+  it("is still refused when it pays back more than was borrowed", () => {
+    // Dan borrowed 400.00 and sent 450.00 by e-wallet: −50.00.
+    const over = [lent(1, "2026-08-01", "Dan", 40000), paidToAccount(2, "2026-08-02", "Dan", 45000)];
+    expect(firstOverpaid(over)).toEqual({ person: "Dan", owes: -5000 });
   });
 });
 
@@ -281,17 +334,33 @@ describe("drawerEntryItem", () => {
   it("turns a stored entry into a ledger line, with the borrower on a loan and when it was logged", () => {
     const createdAt = new Date("2026-08-05T09:30:00Z");
     expect(
-      drawerEntryItem({ id: 4, kind: "lent", onDate: "2026-08-05", amount: "1000.50", person: "Ben", createdAt }),
+      drawerEntryItem({
+        id: 4,
+        kind: "lent",
+        onDate: "2026-08-05",
+        amount: "1000.50",
+        person: "Ben",
+        toAccount: false,
+        createdAt,
+      }),
     ).toEqual({
       source: "drawer",
       id: 4,
       onDate: "2026-08-05",
       loggedAt: Date.UTC(2026, 7, 5, 9, 30),
       change: -100050,
-      loan: { kind: "lent", person: "Ben" },
+      loan: { kind: "lent", person: "Ben", amount: 100050 },
     });
     expect(
-      drawerEntryItem({ id: 5, kind: "cash_in", onDate: "2026-08-01", amount: "0.01", person: null, createdAt }),
+      drawerEntryItem({
+        id: 5,
+        kind: "cash_in",
+        onDate: "2026-08-01",
+        amount: "0.01",
+        person: null,
+        toAccount: false,
+        createdAt,
+      }),
     ).toEqual({
       source: "drawer",
       id: 5,
@@ -299,6 +368,21 @@ describe("drawerEntryItem", () => {
       loggedAt: Date.UTC(2026, 7, 5, 9, 30),
       change: 1,
     });
+  });
+
+  it("gives a payback to the bank or e-wallet no cash change, but keeps its amount on the loan", () => {
+    const createdAt = new Date("2026-08-09T00:00:00Z");
+    expect(
+      drawerEntryItem({
+        id: 6,
+        kind: "paid_back",
+        onDate: "2026-08-09",
+        amount: "600.00",
+        person: "Ben",
+        toAccount: true,
+        createdAt,
+      }),
+    ).toMatchObject({ change: 0, loan: { kind: "paid_back", person: "Ben", amount: 60000 } });
   });
 });
 
@@ -326,7 +410,7 @@ describe("drawerFlagFor", () => {
 });
 
 describe("drawerEntryValues", () => {
-  const typed = { onDate: "2026-08-05", amount: 100050, note: null };
+  const typed = { onDate: "2026-08-05", amount: 100050, toAccount: false, note: null };
 
   it("keeps the person on a loan, trimmed, and saves the amount as numeric text", () => {
     expect(drawerEntryValues({ ...typed, kind: "lent", person: "  Ben " })).toEqual({
@@ -334,8 +418,17 @@ describe("drawerEntryValues", () => {
       onDate: "2026-08-05",
       amount: "1000.50",
       person: "Ben",
+      toAccount: false,
       note: null,
     });
+  });
+
+  it("keeps 'paid to your bank / e-wallet' on a paid back only", () => {
+    expect(drawerEntryValues({ ...typed, kind: "paid_back", person: "Ben", toAccount: true }).toAccount).toBe(true);
+    expect(drawerEntryValues({ ...typed, kind: "paid_back", person: "Ben", toAccount: false }).toAccount).toBe(false);
+    // Switched from Paid back to another kind with the choice still sent: dropped.
+    expect(drawerEntryValues({ ...typed, kind: "lent", person: "Ben", toAccount: true }).toAccount).toBe(false);
+    expect(drawerEntryValues({ ...typed, kind: "cash_in", person: "", toAccount: true }).toAccount).toBe(false);
   });
 
   it("drops a person typed on anything but a loan", () => {

@@ -45,8 +45,9 @@ const SAMPLE = `
   INSERT INTO backups (taken_at, taken_by_id) VALUES ('2026-10-01T07:00:00Z', 1);
   INSERT INTO helper_entries (period_id, kind, payer_id, on_date, amount, deduction, note, from_drawer) VALUES
     (1, 'opening', NULL, NULL, 2000.00, 0, NULL, false), (1, 'visit', 3, '2026-08-09', 600.00, 100.00, 'Half day', true);
-  INSERT INTO cash_drawer_entries (kind, on_date, amount, person, note) VALUES
-    ('cash_in', '2026-08-01', 5000.00, NULL, 'From the bank'), ('lent', '2026-08-02', 0.01, 'Ben O''Neil', NULL);
+  INSERT INTO cash_drawer_entries (kind, on_date, amount, person, note, to_account) VALUES
+    ('cash_in', '2026-08-01', 5000.00, NULL, 'From the bank', false), ('lent', '2026-08-02', 0.01, 'Ben O''Neil', NULL, false),
+    ('paid_back', '2026-08-03', 0.01, 'Ben O''Neil', NULL, true);
   INSERT INTO reminder_sends (period_id, kind, member_id, sent_at, seen_at) VALUES
     (1, 'last_day', 3, '2026-08-31T00:00:00Z', NULL), (1, 'payables', 3, '2026-09-01T01:00:00Z', '2026-09-02T03:04:05.678901Z');
   INSERT INTO member_devices (member_id, via, platform) VALUES (1, 'app', 'iphone'), (3, 'web', 'other');
