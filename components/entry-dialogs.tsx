@@ -1162,7 +1162,8 @@ const DRAWER_KIND_ITEMS = (Object.entries(DRAWER_KIND_LABELS) as [DrawerKind, st
 
 const DRAWER_KIND_HINTS: Record<DrawerKind, string> = {
   cash_in: "Money put in: taken out of the bank, or what's in the drawer when you start.",
-  spent: "Paid out for something not logged in My House. A Helper visit or an advance? Tick “Paid from the cash drawer” on it instead.",
+  spent:
+    "Cash taken out for something not logged anywhere else in My House, like parking. Paid the Helper or bought something for the house? Log it on the Helper Visits or Advances tab and tick “Paid from the cash drawer” there, so it isn't counted twice.",
   lent: "Someone borrowed from the drawer. It shows under Owed until it's paid back.",
   paid_back:
     "Someone returned what they borrowed. Paid to your bank or e-wallet? It clears what they owe without adding to the drawer's cash.",
