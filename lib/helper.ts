@@ -8,7 +8,7 @@
 // - Her debt is early pay (and the debt carried over from the sheet) minus everything taken off,
 //   across all months. It's only a record; it never enters the split by itself.
 
-import { sumCentavos, toCentavos, type Centavos } from "@/lib/money";
+import { parseMoneyInput, sumCentavos, toCentavos, type Centavos } from "@/lib/money";
 
 export type HelperEntryKind = "visit" | "early_pay" | "opening";
 
@@ -59,6 +59,23 @@ export function handedOver(entry: HelperEntryInput): Centavos {
     case "opening":
       return 0;
   }
+}
+
+/**
+ * The "Log a visit" form's live line: what she'll get in cash, from the two amounts as typed
+ * (daily pay, taken off; an empty Taken off is ₱0). Null while Daily pay is empty, either isn't
+ * a valid amount, Daily pay isn't above ₱0 or Taken off is below ₱0 (the server refuses those with
+ * its own message). `cash` is negative when more is taken off than her pay (the form warns; the
+ * server refuses it).
+ */
+export function visitCashHint(
+  amountRaw: string,
+  deductionRaw: string,
+): { pay: Centavos; takenOff: Centavos; cash: Centavos } | null {
+  const pay = parseMoneyInput(amountRaw);
+  const takenOff = deductionRaw.trim() === "" ? 0 : parseMoneyInput(deductionRaw);
+  if (pay === null || takenOff === null || pay <= 0 || takenOff < 0) return null;
+  return { pay, takenOff, cash: pay - takenOff };
 }
 
 /** How the entry moves her debt: up for early pay and the opening debt, down for what's taken off. */
