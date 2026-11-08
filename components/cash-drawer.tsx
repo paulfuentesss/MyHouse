@@ -157,7 +157,7 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
                     // A payback to the bank / e-wallet moved no cash (change 0), so take the entry's
                     // own amount, and show it outside In and Out.
                     const amount = formatPHP(line.source === "drawer" ? line.amount : Math.abs(line.change));
-                    const offDrawer = line.change === 0;
+                    const offDrawer = line.source === "drawer" && line.toAccount;
                     const left = (
                       <span className={cn(line.leftAfter < 0 && "text-destructive")}>{formatPHP(line.leftAfter)}</span>
                     );

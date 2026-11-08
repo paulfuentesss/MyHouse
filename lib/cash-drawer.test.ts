@@ -410,7 +410,7 @@ describe("drawerFlagFor", () => {
 });
 
 describe("drawerEntryValues", () => {
-  const typed = { onDate: "2026-08-05", amount: 100050, toAccount: false, note: null };
+  const typed = { onDate: "2026-08-05", amount: 100050, paidTo: "drawer" as const, note: null };
 
   it("keeps the person on a loan, trimmed, and saves the amount as numeric text", () => {
     expect(drawerEntryValues({ ...typed, kind: "lent", person: "  Ben " })).toEqual({
@@ -423,12 +423,12 @@ describe("drawerEntryValues", () => {
     });
   });
 
-  it("keeps 'paid to your bank / e-wallet' on a paid back only", () => {
-    expect(drawerEntryValues({ ...typed, kind: "paid_back", person: "Ben", toAccount: true }).toAccount).toBe(true);
-    expect(drawerEntryValues({ ...typed, kind: "paid_back", person: "Ben", toAccount: false }).toAccount).toBe(false);
+  it("saves Paid to 'Bank / e-wallet' as to_account, on a paid back only", () => {
+    expect(drawerEntryValues({ ...typed, kind: "paid_back", person: "Ben", paidTo: "account" }).toAccount).toBe(true);
+    expect(drawerEntryValues({ ...typed, kind: "paid_back", person: "Ben", paidTo: "drawer" }).toAccount).toBe(false);
     // Switched from Paid back to another kind with the choice still sent: dropped.
-    expect(drawerEntryValues({ ...typed, kind: "lent", person: "Ben", toAccount: true }).toAccount).toBe(false);
-    expect(drawerEntryValues({ ...typed, kind: "cash_in", person: "", toAccount: true }).toAccount).toBe(false);
+    expect(drawerEntryValues({ ...typed, kind: "lent", person: "Ben", paidTo: "account" }).toAccount).toBe(false);
+    expect(drawerEntryValues({ ...typed, kind: "cash_in", person: "", paidTo: "account" }).toAccount).toBe(false);
   });
 
   it("drops a person typed on anything but a loan", () => {

@@ -30,10 +30,16 @@ beforeEach(async () => {
 });
 
 type Kind = "cash_in" | "spent" | "lent" | "paid_back";
-const values = (kind: Kind, onDate: string, pesos: string, person = "", note: string | null = null, toAccount = false) =>
-  drawerEntryValues({ kind, onDate, amount: toCentavos(pesos), person, toAccount, note });
+const values = (
+  kind: Kind,
+  onDate: string,
+  pesos: string,
+  person = "",
+  note: string | null = null,
+  paidTo: "account" | "drawer" = "drawer",
+) => drawerEntryValues({ kind, onDate, amount: toCentavos(pesos), person, paidTo, note });
 /** Paid back to PA's bank or e-wallet, not into the drawer. */
-const toAccount = (onDate: string, pesos: string, person: string) => values("paid_back", onDate, pesos, person, null, true);
+const toAccount = (onDate: string, pesos: string, person: string) => values("paid_back", onDate, pesos, person, null, "account");
 const add = (...args: Parameters<typeof values>) => db.transaction((tx) => addDrawerEntryIn(tx, values(...args)));
 const entries = () =>
   db
@@ -218,6 +224,13 @@ describe("getCashDrawer", () => {
     drawer = (await getCashDrawer())!;
     expect(drawer.cashOnHand).toBe(200000);
     expect(drawer.owing).toEqual([]);
+
+    // And back to "Bank / e-wallet": 2,000.00 − 600.00 = 1,400.00 again, Ben still owes 0.
+    await db.transaction((tx) => updateDrawerEntryIn(tx, paidBack, toAccount("2026-08-09", "600.00", "Ben")));
+    drawer = (await getCashDrawer())!;
+    expect(drawer.cashOnHand).toBe(140000);
+    expect(drawer.owing).toEqual([]);
+    expect(drawer.lines.at(-1)).toMatchObject({ toAccount: true });
   });
 
   it("refuses a payback to the bank or e-wallet bigger than the loan", async () => {

@@ -68,7 +68,8 @@ export function drawerEntryValues(input: {
   onDate: string;
   amount: Centavos;
   person: string;
-  toAccount: boolean;
+  /** The form's Paid to: PA's bank / e-wallet, or the drawer itself. */
+  paidTo: "account" | "drawer";
   note: string | null;
 }) {
   const loan = input.kind === "lent" || input.kind === "paid_back";
@@ -79,7 +80,7 @@ export function drawerEntryValues(input: {
     onDate: input.onDate,
     amount: fromCentavos(input.amount),
     person: loan ? person : null,
-    toAccount: input.kind === "paid_back" && input.toAccount,
+    toAccount: input.kind === "paid_back" && input.paidTo === "account",
     note: input.note,
   };
 }
