@@ -6,6 +6,8 @@
 // - Cash on hand is everything in minus everything out. It may go below ₱0 (a cash in not logged
 //   yet); the page points at where.
 // - What someone owes the drawer is what they borrowed minus what they paid back, never below ₱0.
+//   A payback to PA's bank or e-wallet clears the loan but adds no cash (it never reached the
+//   drawer); refilling the drawer from there is a cash in.
 // - None of it enters the split: it's the admin's own money.
 
 import { ActionError } from "@/lib/errors";
@@ -31,8 +33,11 @@ export interface DrawerItem {
   loggedAt: number;
   /** + money into the drawer, − money out. */
   change: Centavos;
-  /** Lent / paid back only: who, as typed. */
-  loan?: { kind: "lent" | "paid_back"; person: string };
+  /**
+   * Lent / paid back only: who, as typed, and how much. The amount is the loan's own, since a
+   * payback to PA's bank or e-wallet clears the loan without changing the drawer's cash.
+   */
+  loan?: { kind: "lent" | "paid_back"; person: string; amount: Centavos };
 }
 
 /**
@@ -54,12 +59,17 @@ export function drawerFlagFor(
   return true;
 }
 
-/** A drawer entry as typed, ready to save: a name only on a loan, and required there. */
+/**
+ * A drawer entry as typed, ready to save: a name only on a loan, and required there; "paid to
+ * your bank / e-wallet" only on a paid back.
+ */
 export function drawerEntryValues(input: {
   kind: DrawerKind;
   onDate: string;
   amount: Centavos;
   person: string;
+  /** The form's Paid to: PA's bank / e-wallet, or the drawer itself. */
+  paidTo: "account" | "drawer";
   note: string | null;
 }) {
   const loan = input.kind === "lent" || input.kind === "paid_back";
@@ -70,12 +80,17 @@ export function drawerEntryValues(input: {
     onDate: input.onDate,
     amount: fromCentavos(input.amount),
     person: loan ? person : null,
+    toAccount: input.kind === "paid_back" && input.paidTo === "account",
     note: input.note,
   };
 }
 
-/** Money in for a cash in or a paid back, out for spent or lent. */
-export function drawerChange(kind: DrawerKind, amount: Centavos): Centavos {
+/**
+ * Money in for a cash in or a paid back, out for spent or lent. A paid back to PA's bank or
+ * e-wallet (`toAccount`) never reached the drawer, so it changes nothing.
+ */
+export function drawerChange(kind: DrawerKind, amount: Centavos, toAccount = false): Centavos {
+  if (kind === "paid_back" && toAccount) return 0;
   return kind === "cash_in" || kind === "paid_back" ? amount : -amount;
 }
 
@@ -86,17 +101,19 @@ export function drawerEntryItem(entry: {
   onDate: string;
   amount: string;
   person: string | null;
+  toAccount: boolean;
   createdAt: Date;
 }): DrawerItem {
+  const amount = toCentavos(entry.amount);
   const item: DrawerItem = {
     source: "drawer",
     id: entry.id,
     onDate: entry.onDate,
     loggedAt: entry.createdAt.getTime(),
-    change: drawerChange(entry.kind, toCentavos(entry.amount)),
+    change: drawerChange(entry.kind, amount, entry.toAccount),
   };
   if ((entry.kind === "lent" || entry.kind === "paid_back") && entry.person !== null) {
-    item.loan = { kind: entry.kind, person: entry.person };
+    item.loan = { kind: entry.kind, person: entry.person, amount };
   }
   return item;
 }
@@ -158,14 +175,18 @@ export interface Loan {
   owes: Centavos;
 }
 
-/** What each person who ever borrowed or paid back owes the drawer, by name. */
+/**
+ * What each person who ever borrowed or paid back owes the drawer, by name. A payback counts
+ * wherever it went (the drawer, or PA's bank or e-wallet).
+ */
 export function loansByPerson(items: readonly DrawerItem[]): Loan[] {
   const loans = new Map<string, Loan>();
   for (const item of items.toSorted(drawerCompare)) {
     if (!item.loan) continue;
     const key = personKey(item.loan.person);
     const loan = loans.get(key) ?? { person: "", owes: 0 };
-    loans.set(key, { person: item.loan.person.trim(), owes: loan.owes - item.change });
+    const owes = item.loan.kind === "lent" ? loan.owes + item.loan.amount : loan.owes - item.loan.amount;
+    loans.set(key, { person: item.loan.person.trim(), owes });
   }
   return [...loans.values()].sort((a, b) => a.person.localeCompare(b.person));
 }

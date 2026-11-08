@@ -34,7 +34,7 @@ function describe(line: DrawerLine): { pill: string; pillClass: string; text: st
       return {
         pill: DRAWER_KIND_LABELS[line.kind],
         pillClass: KIND_PILLS[line.kind],
-        text: [line.person, line.note].filter(Boolean).join(" · ") || null,
+        text: [line.person, line.toAccount && "to bank / e-wallet", line.note].filter(Boolean).join(" · ") || null,
       };
     case "helper":
       return {
@@ -89,7 +89,7 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
           <p className="mt-2 text-sm text-muted-foreground">
             {below
               ? `It went below ₱0 on ${dateLabel(below.onDate)} (${describe(below).pill.toLowerCase()}) — is a Cash in missing before it?`
-              : "Everything put in, minus everything paid out or lent. Only you see this tab."}
+              : "Everything put in, minus everything paid out or lent. Paybacks to your bank or e-wallet aren't in it. Only you see this tab."}
           </p>
         </section>
         <section className="rounded-xl border bg-white p-5 shadow-xs">
@@ -154,7 +154,10 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
                     const { pill, pillClass, text } = describe(line);
                     const linked = linkedHref(line);
                     const date = dayLabel(line.onDate);
-                    const amount = formatPHP(Math.abs(line.change));
+                    // A payback to the bank / e-wallet moved no cash (change 0), so take the entry's
+                    // own amount, and show it outside In and Out.
+                    const amount = formatPHP(line.source === "drawer" ? line.amount : Math.abs(line.change));
+                    const offDrawer = line.source === "drawer" && line.toAccount;
                     const left = (
                       <span className={cn(line.leftAfter < 0 && "text-destructive")}>{formatPHP(line.leftAfter)}</span>
                     );
@@ -206,9 +209,10 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
                                 className={cn(
                                   "shrink-0 font-mono font-semibold tabular-nums",
                                   line.change > 0 && "text-emerald-700",
+                                  offDrawer && "font-normal text-muted-foreground",
                                 )}
                               >
-                                {line.change > 0 ? "+" : "−"}
+                                {offDrawer ? "" : line.change > 0 ? "+" : "−"}
                                 {amount}
                               </span>
                             </div>
@@ -226,6 +230,9 @@ export function CashDrawer({ drawer }: { drawer: CashDrawerView }) {
                             <span className="flex flex-wrap items-center gap-2">
                               {kindPill}
                               {text && <span className="text-muted-foreground">{text}</span>}
+                              {offDrawer && (
+                                <span className="font-mono text-muted-foreground tabular-nums">{amount}</span>
+                              )}
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-right font-mono text-emerald-700 tabular-nums">

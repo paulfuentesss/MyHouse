@@ -1,0 +1,2 @@
+ALTER TABLE "cash_drawer_entries" ADD COLUMN "to_account" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "cash_drawer_entries" ADD CONSTRAINT "cash_drawer_entries_to_account" CHECK (NOT "cash_drawer_entries"."to_account" OR "cash_drawer_entries"."kind" = 'paid_back');

@@ -1288,3 +1288,17 @@ older months are rarely looked at, and all lines still load because Cash on hand
 below-₱0 hint need every one.
 **Instead of:** a time field on each entry (one more thing to type, for an order `created_at`
 already records), or paging on the server (the rows are few, and the totals need them all anyway).
+
+## 2026-11-08 — Cash drawer: a Paid back says where it went, bank / e-wallet by default
+**Decision:** a Paid back has **Paid to**, either Bank / e-wallet or Drawer (cash)
+(`cash_drawer_entries.to_account`). Both clear the loan; only cash adds to Cash on hand. New
+paybacks default to Bank / e-wallet. Refilling the drawer from the bank stays an ordinary Cash in,
+and nothing tracks "paid back to the bank but not yet withdrawn".
+**Why:** people who borrow from the drawer usually pay PA back by e-wallet or bank transfer, but a
+Paid back always added the amount to the drawer, so Cash on hand read higher than the cash
+actually there. Defaulting to what usually happens means one less change on almost every
+payback. Existing rows default to "into the drawer" so the migration changes no totals by
+itself; PA switches the ones that went to his accounts.
+**Instead of:** logging a Paid back plus a matching Spent (two lines per payback, and a "Spent"
+that isn't spending), or a running "to refill" total (it drifts as soon as PA withdraws for
+anything else, and a Cash in already records the refill).

@@ -1599,6 +1599,9 @@ const drawerEntryFields = z.object({
   onDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date"),
   amount: moneyField(false),
   person: z.string().max(60, "Keep the name under 60 characters").default(""),
+  // Paid back only (the form sends it only then): to PA's bank / e-wallet, or into the drawer.
+  // drawerEntryValues turns it into to_account.
+  paidTo: z.enum(["account", "drawer"], { message: "Choose where it was paid" }).default("drawer"),
   note: z
     .string()
     .trim()
