@@ -17,6 +17,10 @@ Replaces the Google Sheet's two Helper tables: her daily pay per visit, and her 
     ([the rule](../settlement-rules.md#the-helper)).
 - **Log a visit:** date (optional: some have none, and a visit can be logged late, in another
   month), her daily pay, how much was taken off her debt (₱0 if none), and who paid her.
+  Daily pay is her full pay, before anything is taken off. As the two amounts are typed, a line
+  under them shows the cash she gets ("She gets ₱… in cash (pay − taken off)",
+  `visitCashHint` in `lib/helper.ts`), or a warning when more is taken off than her pay, so typing
+  the cash handed over as Daily pay stands out before saving.
 - **Give early pay:** date, amount, and who gave it.
 - **Set starting debt** (PA, once — a link under "She owes" until it's set): the sheet's
   Remaining when the household moved over. It's added to her debt only, not split, because the

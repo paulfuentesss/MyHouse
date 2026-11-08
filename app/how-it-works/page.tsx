@@ -280,6 +280,11 @@ export default async function HowItWorksPage() {
             Visits tab keeps track of what she still owes. The Total row under its list adds up the month.
           </p>
           <p>
+            When logging a visit where something is taken off, type her <strong>full</strong> daily pay as Daily pay
+            and the part kept back as Taken off — not the cash you handed her. The form shows the cash she gets
+            underneath, so you can check it matches what you gave.
+          </p>
+          <p>
             <strong>Whoever hands her money gets it back.</strong> The month&apos;s Helper bill is everything handed
             to her that month — daily pay minus what was taken off, plus early pay — split equally like Water and
             PLDT. Each person&apos;s part counts as money they paid, so it comes off their Month Final. Example: pay

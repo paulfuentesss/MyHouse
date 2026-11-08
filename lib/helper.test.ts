@@ -8,6 +8,7 @@ import {
   helperPaidBy,
   ledgerCompare,
   owesAfter,
+  visitCashHint,
   type HelperEntryInput,
 } from "./helper";
 
@@ -58,6 +59,35 @@ describe("handedOver", () => {
   it("is the whole early pay, and nothing for the carried-over debt", () => {
     expect(handedOver(anaEarly)).toBe(50000);
     expect(handedOver(start)).toBe(0);
+  });
+});
+
+describe("visitCashHint", () => {
+  it("is the daily pay minus what's taken off, as typed", () => {
+    expect(visitCashHint("800", "200")).toEqual({ pay: 80000, takenOff: 20000, cash: 60000 });
+    expect(visitCashHint("1,000", "₱ 250.5")).toEqual({ pay: 100000, takenOff: 25050, cash: 74950 });
+    expect(visitCashHint("350", "350")).toEqual({ pay: 35000, takenOff: 35000, cash: 0 });
+  });
+
+  it("counts an empty Taken off as nothing taken off", () => {
+    expect(visitCashHint("800", "")).toEqual({ pay: 80000, takenOff: 0, cash: 80000 });
+    expect(visitCashHint("800", "  ")).toEqual({ pay: 80000, takenOff: 0, cash: 80000 });
+  });
+
+  it("goes below zero when more is taken off than her pay", () => {
+    expect(visitCashHint("200", "300")).toEqual({ pay: 20000, takenOff: 30000, cash: -10000 });
+  });
+
+  it("is null while Daily pay is empty or either amount isn't valid", () => {
+    expect(visitCashHint("", "200")).toBeNull();
+    expect(visitCashHint("abc", "0")).toBeNull();
+    expect(visitCashHint("800", "2x")).toBeNull();
+  });
+
+  it("is null for amounts the server refuses: Daily pay of ₱0 or less, or a negative Taken off", () => {
+    expect(visitCashHint("0", "")).toBeNull();
+    expect(visitCashHint("-800", "")).toBeNull();
+    expect(visitCashHint("800", "-200")).toBeNull();
   });
 });
 

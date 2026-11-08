@@ -40,6 +40,7 @@ import { useIsPreviewing, useViewer } from "@/components/viewer-context";
 import { DRAWER_KIND_LABELS, type DrawerKind } from "@/lib/cash-drawer";
 import type { DrawerLine } from "@/lib/cash-drawer-data";
 import { CATEGORY_LABELS, todayInManila } from "@/lib/format";
+import { visitCashHint } from "@/lib/helper";
 import { HOUSE_BUDGET_LABEL } from "@/lib/household-config";
 import { formatPHP, fromCentavos, parseMoneyInput, type Centavos } from "@/lib/money";
 import { isAdmin } from "@/lib/permissions";
@@ -311,7 +312,7 @@ const HELPER_FORMS: Record<
     title: "Log a visit",
     editTitle: "Edit visit",
     description:
-      "A day she worked. Whoever paid her gets it back in the split. Anything taken off her pay comes off what she owes.",
+      "A day she worked. Daily pay is her full pay for the day, before anything is taken off what she owes. Whoever paid her gets back the cash they handed her.",
     amountLabel: "Daily pay (₱)",
     submit: "Log visit",
     saved: "Visit logged",
@@ -397,6 +398,13 @@ function HelperEntryForm({
   const collectorId = String(view.members.find((m) => m.isCollector)?.id ?? view.members[0]?.id);
   // What she owes before this visit's deduction (when editing, add back what it took off).
   const owes = view.helper.owesNow + (entry?.deduction ?? 0);
+  // The two amounts as typed, for the "She gets … in cash" line under them (the inputs stay
+  // uncontrolled, like the rest of the form).
+  const [amountText, setAmountText] = useState(entry ? fromCentavos(entry.amount) : "");
+  const [deductionText, setDeductionText] = useState(
+    entry && entry.deduction > 0 ? fromCentavos(entry.deduction) : "",
+  );
+  const cashHint = kind === "visit" ? visitCashHint(amountText, deductionText) : null;
 
   return (
     <>
@@ -448,6 +456,7 @@ function HelperEntryForm({
               inputMode="decimal"
               placeholder="0.00"
               defaultValue={entry ? fromCentavos(entry.amount) : undefined}
+              onChange={(e) => setAmountText(e.target.value)}
               required
             />
           </Field>
@@ -459,6 +468,7 @@ function HelperEntryForm({
                 inputMode="decimal"
                 placeholder="0.00"
                 defaultValue={entry && entry.deduction > 0 ? fromCentavos(entry.deduction) : undefined}
+                onChange={(e) => setDeductionText(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
                 {owes > 0
@@ -468,6 +478,20 @@ function HelperEntryForm({
             </Field>
           )}
         </div>
+        {cashHint &&
+          (cashHint.cash < 0 ? (
+            <p className="-mt-1 text-sm text-destructive">Taken off can&apos;t be more than her daily pay.</p>
+          ) : (
+            <p className="-mt-1 text-sm" aria-live="polite">
+              She gets <strong className="font-mono">{formatPHP(cashHint.cash)}</strong> in cash
+              {cashHint.takenOff > 0 && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  ({formatPHP(cashHint.pay)} − {formatPHP(cashHint.takenOff)} taken off)
+                </span>
+              )}
+            </p>
+          ))}
         <Field label="Note (optional)" htmlFor="note">
           <Input
             id="note"
