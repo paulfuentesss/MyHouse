@@ -63,9 +63,10 @@ export function handedOver(entry: HelperEntryInput): Centavos {
 
 /**
  * The "Log a visit" form's live line: what she'll get in cash, from the two amounts as typed
- * (daily pay, taken off; an empty Taken off is ₱0). Null while Daily pay is empty or either
- * isn't a valid amount. `cash` is negative when more is taken off than her pay (the form warns;
- * the server refuses it).
+ * (daily pay, taken off; an empty Taken off is ₱0). Null while Daily pay is empty, either isn't
+ * a valid amount, Daily pay isn't above ₱0 or Taken off is below ₱0 (the server refuses those with
+ * its own message). `cash` is negative when more is taken off than her pay (the form warns; the
+ * server refuses it).
  */
 export function visitCashHint(
   amountRaw: string,
@@ -73,7 +74,7 @@ export function visitCashHint(
 ): { pay: Centavos; takenOff: Centavos; cash: Centavos } | null {
   const pay = parseMoneyInput(amountRaw);
   const takenOff = deductionRaw.trim() === "" ? 0 : parseMoneyInput(deductionRaw);
-  if (pay === null || takenOff === null) return null;
+  if (pay === null || takenOff === null || pay <= 0 || takenOff < 0) return null;
   return { pay, takenOff, cash: pay - takenOff };
 }
 

@@ -83,6 +83,12 @@ describe("visitCashHint", () => {
     expect(visitCashHint("abc", "0")).toBeNull();
     expect(visitCashHint("800", "2x")).toBeNull();
   });
+
+  it("is null for amounts the server refuses: Daily pay of ₱0 or less, or a negative Taken off", () => {
+    expect(visitCashHint("0", "")).toBeNull();
+    expect(visitCashHint("-800", "")).toBeNull();
+    expect(visitCashHint("800", "-200")).toBeNull();
+  });
 });
 
 describe("helperPaidBy and helperBillTotal", () => {
